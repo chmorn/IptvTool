@@ -13,10 +13,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -224,6 +229,67 @@ public class IptvController {
             e.printStackTrace();
             return ResultApi.failure("m3u8地址连接超时");
         }
+        return ResultApi.success();
+    }
+
+    //合并视频
+    @GetMapping(value = "/mix")
+    @ApiOperation(value = "合并视频")
+    @ApiImplicitParams(value = {
+            @ApiImplicitParam(name = "distPath", value = "目录", dataType = "String", required = true, defaultValue = "C:/dvb"),
+            @ApiImplicitParam(name = "fileName", value = "合并后文件名", dataType = "String", required = true, defaultValue = "merge.ts")
+    })
+    public ResultApi mixVideo(String distPath, String fileName) {
+        //校验参数是否为空
+        if (StringUtils.isEmpty(distPath) || StringUtils.isEmpty(fileName)) {
+            return ResultApi.failure("参数为空");
+        }
+        if (!distPath.endsWith(File.separator)) {
+            distPath = distPath + File.separator;
+        }
+        System.out.println("开始合并.............");
+        File dir = new File(distPath);
+        if (!dir.exists()) {
+            return ResultApi.failure("目录不存在");
+        }
+        File[] files = dir.listFiles();
+        //files读取可能顺序乱了，重新排序
+        List<String> list = new ArrayList<String>();
+        for (int i = 0; i < files.length; i++) {
+            list.add(files[i].getName());
+        }
+        Collections.sort(list);
+        //排序结束
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(distPath + "merge.ts");
+            byte[] buffer = new byte[1024];// 一次读取1K
+            int len;
+            System.out.println(files.length);
+            // 长度减1（有个new文件夹）
+            for (int i = 0; i < list.size(); i++) {
+                fis = new FileInputStream(new File(distPath + list.get(i)));
+                //fis = new FileInputStream(new File(filepath+i+".ts"));
+                len = 0;
+                while ((len = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, len);// buffer从指定字节数组写入。buffer:数据中的起始偏移量,len:写入的字数。
+                }
+                fis.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fos != null) {
+                    fos.flush();
+                    fos.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("合并完成.............");
         return ResultApi.success();
     }
 
