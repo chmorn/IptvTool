@@ -1,9 +1,7 @@
 package com.chmorn.iptv;
 
-import com.chmorn.model.FileModel;
 import com.chmorn.model.QueueModel;
 import com.chmorn.utils.DownloadUtils;
-import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -15,7 +13,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
@@ -26,16 +23,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author chenxu
- * @version 1.0
- * @className BackDownloadThread
+ * @author chmorn
  * @description 回录下载线程
- * @date 2021/8/26
+ * @date 2022/8/31
  **/
 public class BackWriteThread implements Runnable {
 
