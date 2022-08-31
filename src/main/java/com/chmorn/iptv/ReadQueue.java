@@ -24,7 +24,7 @@ import java.util.concurrent.BlockingQueue;
  **/
 public class ReadQueue implements Runnable {
 
-    private static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M-d H:m:s");
+    private static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M-d H:m");
 
     //终止线程标志（volatile修饰符用来保证其它线程读取的总是该变量的最新的值）
     private volatile boolean exit = false;

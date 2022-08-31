@@ -30,7 +30,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 @RequestMapping(value = "/iptv")
 public class IptvController {
 
-    private DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M-d H:m:s");
+    private DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M-d H:m");
 
     //查询下载列表
     @GetMapping(value = "/list")
@@ -43,10 +43,10 @@ public class IptvController {
     @GetMapping(value = "/record")
     @ApiOperation(value = "录制")
     @ApiImplicitParams(value = {
-            @ApiImplicitParam(name = "m3u8url", value = "m3u8地址'", dataType = "String", required = true),
+            @ApiImplicitParam(name = "m3u8url", value = "m3u8地址'", dataType = "String", required = true, defaultValue = "http://39.135.138.59:18890/PLTV/88888910/224/3221225659/index.m3u8"),
             @ApiImplicitParam(name = "distPath", value = "保存目录", dataType = "String", required = true, defaultValue = "C:/dvb"),
-            @ApiImplicitParam(name = "startTime", value = "开始时间，格式yyyy-M-d H:m:s", dataType = "String", required = true),
-            @ApiImplicitParam(name = "endTime", value = "结束时间，格式yyyy-M-d H:m:s", dataType = "String", required = true)
+            @ApiImplicitParam(name = "startTime", value = "开始时间，格式yyyy-M-d H:m", dataType = "String", required = true),
+            @ApiImplicitParam(name = "endTime", value = "结束时间，格式yyyy-M-d H:m", dataType = "String", required = true)
     })
     public ResultApi record(String m3u8url, String distPath, String startTime, String endTime) {
         //校验参数是否为空
@@ -78,7 +78,7 @@ public class IptvController {
 
     //停止下载
     @GetMapping(value = "/stop")
-    @ApiOperation(value = "录制")
+    @ApiOperation(value = "停止任务")
     @ApiImplicitParams(value = {
             @ApiImplicitParam(name = "downloadId", value = "下载id'", dataType = "String", required = true)
     })
@@ -121,7 +121,7 @@ public class IptvController {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResultApi.failure("时间格式错误，请检查，正确格式为：yyyy-M-d H:m:s");
+            return ResultApi.failure("时间格式错误，请检查，正确格式为：yyyy-M-d H:m");
         }
         //2、校验保存路径
         try {
@@ -151,12 +151,12 @@ public class IptvController {
 
     //回录
     @GetMapping(value = "/back")
-    @ApiOperation(value = "录制")
+    @ApiOperation(value = "回录")
     @ApiImplicitParams(value = {
-            @ApiImplicitParam(name = "m3u8url", value = "m3u8地址'", dataType = "String", required = true),
+            @ApiImplicitParam(name = "m3u8url", value = "m3u8地址'", dataType = "String", required = true, defaultValue = "http://39.135.138.59:18890/PLTV/88888910/224/3221225659/index.m3u8"),
             @ApiImplicitParam(name = "distPath", value = "保存目录", dataType = "String", required = true, defaultValue = "C:/dvb"),
-            @ApiImplicitParam(name = "startTime", value = "开始时间，格式yyyy-M-d H:m:s", dataType = "String", required = true),
-            @ApiImplicitParam(name = "endTime", value = "结束时间，格式yyyy-M-d H:m:s", dataType = "String", required = true)
+            @ApiImplicitParam(name = "startTime", value = "开始时间，格式yyyy-M-d H:m", dataType = "String", required = true),
+            @ApiImplicitParam(name = "endTime", value = "结束时间，格式yyyy-M-d H:m", dataType = "String", required = true)
     })
     public ResultApi backRecord(String m3u8url, String distPath, String startTime, String endTime) {
         //校验参数是否为空
@@ -198,7 +198,7 @@ public class IptvController {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResultApi.failure("时间格式错误，请检查，正确格式为：yyyy-M-d H:m:s");
+            return ResultApi.failure("时间格式错误，请检查，正确格式为：yyyy-M-d H:m");
         }
         //2、校验保存路径
         try {
