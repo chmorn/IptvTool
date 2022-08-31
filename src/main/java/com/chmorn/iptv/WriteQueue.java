@@ -71,8 +71,8 @@ public class WriteQueue implements Runnable {
         Map<String, String> headers = new HashMap<String, String>();
         headers.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36");
         headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
-        Document res = null;
-        String m3u8 = null;
+        Document res = null;//发送m3u8请求，返回信息
+        String m3u8 = null;//返回信息的body，即m3u8信息
         String line = null;
         BufferedReader br = null;
 

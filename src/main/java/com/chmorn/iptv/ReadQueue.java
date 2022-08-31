@@ -139,7 +139,7 @@ public class ReadQueue implements Runnable {
                 try {
                     url = new URL(urlstr);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setConnectTimeout(8 * 1000);
+                    conn.setConnectTimeout(4 * 1000);
                     conn.setUseCaches(true);
                     inputStream = url.openStream();
                     downByInputstream(inputStream);
@@ -177,7 +177,7 @@ public class ReadQueue implements Runnable {
     }
 
     private void downByInputstream(InputStream inputStream) throws IOException {
-        byte[] buffer = new byte[1024];// 一次读取1K
+        byte[] buffer = new byte[1024 * 1024];// 一次读取1K
         int len = 0;
         while ((len = inputStream.read(buffer)) != -1) {
             fileOutputStream.write(buffer, 0, len);// buffer从指定字节数组写入。buffer:数据中的起始偏移量,len:写入的字数。

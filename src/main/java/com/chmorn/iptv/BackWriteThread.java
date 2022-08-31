@@ -1,14 +1,16 @@
 package com.chmorn.iptv;
 
+import com.chmorn.model.FileModel;
 import com.chmorn.model.QueueModel;
 import com.chmorn.utils.DownloadUtils;
+import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,10 +18,17 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author chenxu
@@ -28,12 +37,12 @@ import java.util.Map;
  * @description 回录下载线程
  * @date 2021/8/26
  **/
-public class BackDownloadThread implements Runnable {
+public class BackWriteThread implements Runnable {
 
     private static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-M-d H:m");
 
-    //终止线程标志（volatile修饰符用来保证其它线程读取的总是该变量的最新的值）
-    private volatile boolean exit = false;
+    public AtomicInteger taskCount = new AtomicInteger(0);
+
     private QueueModel model;
     /**
      * 下载目录
@@ -55,13 +64,6 @@ public class BackDownloadThread implements Runnable {
      **/
     private String timeEnd;
     /**
-     * 合并后的结果文件
-     * 存放在目录：distPath，文件名：downloadId+"ts"
-     **/
-    private String mergeFileName;
-
-    private FileOutputStream fileOutputStream;
-    /**
      * 例如：1629881042-1-162988103.hls.ts
      * 前缀：1629881042，后缀：162988103
      **/
@@ -69,27 +71,21 @@ public class BackDownloadThread implements Runnable {
     int tsPrefixLength = 0;//前缀的长度
     Long tsSuffix = 100000000L;//后缀
 
-    private BackDownloadThread() {
-
+    private BackWriteThread() {
     }
 
-    public BackDownloadThread(QueueModel model, String distPath, int downloadId, String m3u8url, String timeStart, String timeEnd) {
+    public BackWriteThread(QueueModel model, String distPath, int downloadId, String m3u8url, String timeStart, String timeEnd) {
         this.model = model;
-        if (!distPath.endsWith(File.separator)) {
-            this.distPath = distPath + File.separator;
+        if (distPath.endsWith(File.separator)) {
+            this.distPath = distPath + downloadId + File.separator;
         } else {
-            this.distPath = distPath;
+            this.distPath = distPath + File.separator + downloadId + File.separator;
         }
+        new File(this.distPath).mkdir();
         this.downloadId = downloadId;
         this.m3u8url = m3u8url;
         this.timeStart = timeStart;
         this.timeEnd = timeEnd;
-        this.mergeFileName = this.distPath + downloadId + ".ts";
-        try {
-            this.fileOutputStream = new FileOutputStream(new File(mergeFileName));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -105,11 +101,16 @@ public class BackDownloadThread implements Runnable {
 
         LocalDateTime start = LocalDateTime.parse(timeStart, dateTimeFormatter);
         LocalDateTime stop = LocalDateTime.parse(timeEnd, dateTimeFormatter);
+        //计算后缀
+//        LocalDateTime zero = LocalDateTime.parse("1970-1-1 0:0", dateTimeFormatter);
+//        Duration between = Duration.between(zero, start);
+//        tsSuffix = between.getSeconds();
 
+        //获取m3u8地址
         String rooturl = null;
         try {
             URL m3 = new URL(m3u8url);
-            rooturl = m3.getProtocol() + "://" + m3.getHost() + m3.getPath();
+            rooturl = m3.getProtocol() + "://" + m3.getHost() + ":" + m3.getPort() + m3.getPath();
             rooturl = rooturl.substring(0, rooturl.lastIndexOf("/") + 1);
         } catch (MalformedURLException e) {
             e.printStackTrace();
@@ -118,6 +119,7 @@ public class BackDownloadThread implements Runnable {
             res = Jsoup.connect(m3u8url).headers(headers).ignoreContentType(true).get();
         } catch (IOException e) {
             e.printStackTrace();
+            return;
         }
         m3u8 = res.body().html().replaceAll(" ", "\n");
         br = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(m3u8.getBytes())));
@@ -132,6 +134,7 @@ public class BackDownloadThread implements Runnable {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            return;
         }
         if (br != null) {
             try {
@@ -151,95 +154,90 @@ public class BackDownloadThread implements Runnable {
         String fileName = null;
         InputStream inputStream = null;
         String milliSecondFormat = "0000000000000";//13位
+        LocalDateTime begin = LocalDateTime.now();
         while (true) {
             String tmp = milliSecondFormat.substring(String.valueOf(tsPrefix).length());
             LocalDateTime downloadTime = DownloadUtils.getMilliSecond(tsPrefix + tmp);//下载到的时间点
             //结束时间已过,退出
             if (downloadTime.isAfter(stop)) {
+                while (taskCount.get() > 0) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
                 model.setState(1);
+                System.out.println("id:" + downloadId + "完成");
                 try {
-                    fileOutputStream.flush();
-                    fileOutputStream.close();
+                    tsMix();
+                    LocalDateTime end = LocalDateTime.now();
+                    System.out.println("耗时（秒）：" + Duration.between(begin, end).getSeconds());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                exit = true;
-                System.out.println("id:" + downloadId + "完成");
                 break;
+            }
+            //控制队列下载数量
+            while (taskCount.get() > 12) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
             tsPrefix++;
             tsSuffix++;
-
-            while (true) {
-                try {
-                    fileName = tsPrefix + "-1-" + tsSuffix + ".hls.ts";
-                    url = new URL(rooturl + fileName);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setConnectTimeout(8 * 1000);
-                    conn.setUseCaches(true);
-                    inputStream = url.openStream();
-                    downByInputstream(inputStream);
-                    break;
-                } catch (IOException e) {
-                    //如果文件流为空，则说明fileName不对，向下找
-                    //如果文件流不为空，则说明下载异常，再去下载几次
-                    if (inputStream == null) {
-                        tsPrefix++;
-                    } else {
-                        //处理个别异常下载，再多次尝试下载
-                        try {
-                            Thread.sleep(10);
-                            int lo;
-                            for (lo = 0; lo < 5; lo++) {
-                                try {
-                                    downByInputstream(inputStream);
-                                    break;
-                                } catch (IOException ioException) {
-                                    if (lo >= 4) {
-                                        System.out.println("异常：" + rooturl + fileName);
-                                        ioException.printStackTrace();
-                                        break;
-                                    } else {
-                                        Thread.sleep(10);
-                                    }
-                                }
-                            }
-                        } catch (InterruptedException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-                    }
-
-                }
+            try {
+                fileName = tsPrefix + "-1-" + tsSuffix + ".hls.ts";
+                url = new URL(rooturl + fileName);
+                new Thread(new BackReadThread(url, tsPrefix + ".ts", distPath, this)).start();
+                taskCount.incrementAndGet();
+            } catch (Exception e) {
             }
+
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            url = null;
+            //url = null;
             fileName = null;
-            inputStream = null;
         }
 
     }
 
-    public boolean isExit() {
-        return exit;
-    }
-
-    public void setExit(boolean exit) {
-        this.exit = exit;
-    }
-
-    private void downByInputstream(InputStream inputStream) throws IOException {
+    // ts视频合并+（new文件夹）
+    private void tsMix() throws IOException {
+        System.out.println("开始合并.............");
+        File dir = new File(distPath);
+        File[] files = dir.listFiles();
+        //files读取可能顺序乱了，重新排序
+        List<String> list = new ArrayList<String>();
+        for (int i = 0; i < files.length; i++) {
+            list.add(files[i].getName());
+        }
+        Collections.sort(list);
+        //排序结束
+        FileInputStream fis = null;
+        FileOutputStream fos = new FileOutputStream(distPath + downloadId + "-merge.ts");
         byte[] buffer = new byte[1024];// 一次读取1K
-        int len = 0;
-        while ((len = inputStream.read(buffer)) != -1) {
-            fileOutputStream.write(buffer, 0, len);// buffer从指定字节数组写入。buffer:数据中的起始偏移量,len:写入的字数。
+        int len;
+        System.out.println(files.length);
+        // 长度减1（有个new文件夹）
+        for (int i = 0; i < list.size(); i++) {
+            fis = new FileInputStream(new File(distPath + list.get(i)));
+            //fis = new FileInputStream(new File(filepath+i+".ts"));
+            len = 0;
+            while ((len = fis.read(buffer)) != -1) {
+                fos.write(buffer, 0, len);// buffer从指定字节数组写入。buffer:数据中的起始偏移量,len:写入的字数。
+            }
+            fis.close();
         }
-        inputStream.close();
-        fileOutputStream.flush();
-        //fileOutputStream.close();
+        fos.flush();
+        fos.close();
+        System.out.println("合并完成.............");
+
     }
 
 }
