@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.3.7.RELEASE</version>
+        <version>2.2.5.RELEASE</version>
     </parent>
 
     <groupId>org.example</groupId>
@@ -19,6 +19,7 @@
         <maven.compiler.target>8</maven.compiler.target>
         <version.fastjson>1.2.83</version.fastjson>
         <version.swagger>2.9.2</version.swagger>
+        <version.jsoup>1.11.3</version.jsoup>
     </properties>
 
     <dependencies>
@@ -47,6 +48,12 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${version.jsoup}</version>
         </dependency>
 
         <!--swagger文档-->
